@@ -6,4 +6,4 @@ def tests(session):
   session.install("-r", "requirements.txt")
 
   # Run your integration tests
-  session.run("pytest", "system/workflow-test.py")
+  session.run("pytest", "-s", "system/workflow-test.py")

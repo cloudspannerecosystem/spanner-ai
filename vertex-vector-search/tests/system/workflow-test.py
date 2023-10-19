@@ -18,6 +18,7 @@ from google.cloud.workflows import executions_v1
 from google.cloud.workflows.executions_v1 import Execution
 from google.cloud import workflows_v1
 import random, json, string, time, pytest, os
+import logging
 
 
 #Configure Variables
@@ -27,8 +28,8 @@ SPANNER_DATABASE_ID = "vector-db-load-test"
 SPANNER_TABLE_NAME = "test_spanner_vertex_vector_integration_" + str(random.randint(10000, 99999))
 WORKFLOW_NAME = "test-spanner-vvi-" + str(random.randint(10000, 99999))
 WORKFLOW_LOCATION = "us-central1"
-INDEX_ENDPOINT = ""
-VERTEX_VECTOR_SEARCH_INDEX = "3191086209015218176"
+VERTEX_VECTOR_SEARCH_INDEX_ENDPOINT = ""
+VERTEX_VECTOR_SEARCH_INDEX = "8496735588383195136"
 
 # Get the directory where this test file is located
 THIS_FILE_DIRECTORY = os.path.dirname(os.path.abspath(__file__))
@@ -36,6 +37,22 @@ WORKFLOW_INPUT_FILE_PATH = THIS_FILE_DIRECTORY + "/workflow-input.json"
 WORKFLOW_YAML_FILE_PATH =  os.path.dirname(os.path.dirname(THIS_FILE_DIRECTORY)) + "/workflows/batch-export.yaml"
 
 
+# Define a custom log format
+log_format = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+log_datefmt = '%Y-%m-%d %H:%M:%S'
+
+# Create a logger instance
+logger = logging.getLogger(__name__)
+
+# Set the log level to capture all log messages
+logger.setLevel(level=logging.DEBUG)
+
+# Create a handler for console output
+console_handler = logging.StreamHandler()
+console_handler.setFormatter(logging.Formatter(log_format, log_datefmt))
+
+# Add the console handler and file handler to the logger
+logger.addHandler(console_handler)
 
 def generate_vector_data(number_of_rows, vector_dimension):
     """Generates vector data for Spanner table.
@@ -47,6 +64,8 @@ def generate_vector_data(number_of_rows, vector_dimension):
     Returns:
         A list of rows, each of which is a tuple of (id, text, embeddings, restricts).
     """
+
+    logger.info("Generating {} vector embeddings each of dimension: {}.".format(number_of_rows, vector_dimension))
 
     rows = []
 
@@ -72,6 +91,8 @@ def generate_vector_data(number_of_rows, vector_dimension):
 
         rows.append(row)
 
+    logger.info("Vector Embeddings generated.")
+
     return rows
 
 def setup_spanner(project_id, instance_id, database_id, table_name):
@@ -83,6 +104,8 @@ def setup_spanner(project_id, instance_id, database_id, table_name):
         database_id: The database ID.
         table_name: The table name.
     """
+
+    logger.info("Setting up Spanner Table...")
 
     NUMBER_OF_ROWS_IN_SPANNER  = 1000
     VECTOR_DIMENSION = 128
@@ -99,7 +122,7 @@ def setup_spanner(project_id, instance_id, database_id, table_name):
         crowding_tag STRING(MAX),
     ) PRIMARY KEY (id)""".format(tableName=table_name)
 
-    print (ddl)
+    logger.info("Spanner DDL to create new table: {}".format(ddl))
 
     databaseoperation = database.update_ddl(
         [
@@ -107,13 +130,15 @@ def setup_spanner(project_id, instance_id, database_id, table_name):
         ]
     )
 
-    print("Waiting for creation of Spanner Table...")
+    logger.info("Waiting for creation of Spanner Table...")
     databaseoperation.result(100000)
 
-    print("Created {} table on database {}".format(table_name,database.name))
+    logger.info("Created {} table on database {}".format(table_name, database.name))
 
 
     rows = generate_vector_data(NUMBER_OF_ROWS_IN_SPANNER, VECTOR_DIMENSION)
+
+    logger.info("Inserting generated vector embeddings in Spanner Table: {}".format(table_name))
 
     with database.batch() as batch:
         batch.insert(
@@ -135,6 +160,8 @@ def deploy_workflow(project, location, workflow_name):
         location: The location of the workflow.
         workflow_name: The name of the workflow.
     """
+    logger.info("Deploying workflow with name: {} on project: {} and location: {}.".format(workflow_name, project, location))
+    logger.info("Picking workflow configuration from following path: {}".format(WORKFLOW_YAML_FILE_PATH))
     file_content = "";
 
     with open(WORKFLOW_YAML_FILE_PATH, 'r') as file:
@@ -157,11 +184,11 @@ def deploy_workflow(project, location, workflow_name):
     # Make the request
     operation = client.create_workflow(request=request)
 
-    print("Waiting for deployment of workflow to complete...")
+    logger.info("Waiting for deployment of workflow to complete...")
 
     response = operation.result()
 
-    print ("Workflow Deployed")
+    logger.info("Workflow with name: {} deployed successfully on project: {}.".format(workflow_name, project))
 
 
 def execute_workflow(project, location, workflow_name):
@@ -172,9 +199,13 @@ def execute_workflow(project, location, workflow_name):
         location: The location of the workflow.
         workflow_name: The name of the workflow.
     """
+    logger.info("Starting execution of workflow with name: {}.".format(workflow_name))
+    
     client = executions_v1.ExecutionsClient()
 
     json_arguments = "";
+
+    logger.info("Reading workflow input template json from: {}.".format(WORKFLOW_INPUT_FILE_PATH))
 
     with open(WORKFLOW_INPUT_FILE_PATH, 'r') as file:
         # Read the entire file content
@@ -199,7 +230,7 @@ def execute_workflow(project, location, workflow_name):
 
     response =  client.create_execution(request=request)
 
-    print("Execution of workflow triggered with following arguments: {}".format(json_arguments))
+    logger.info("Execution of workflow with name: {} triggered with following arguments: {}.".format(workflow_name, json_arguments))
 
     return response
 
@@ -213,6 +244,8 @@ def get_worfklow_execution(arguments):
     Returns:
         A workflow execution.
     """
+
+    logger.info("Fetching execution status of workflow with id: {}.".format(arguments['execution_id']))
     client = executions_v1.ExecutionsClient()
 
     # Initialize request argument(s)
@@ -261,7 +294,7 @@ def polling(function_to_poll, arguments, function_poll_predicate, max_attempts=1
         if function_poll_predicate(response):
             return response  # Desired condition met
 
-        print(f"Attempt {attempt + 1}: Workflow execution in progress, waiting for workflow to finish..")
+        logger.info("Attempt {}: Workflow execution in progress, waiting for workflow to finish..".format(attempt + 1))
         time.sleep(polling_interval)
 
     raise TimeoutError("Polling timed out")
@@ -279,12 +312,12 @@ def sync_execute_workflow(project, location, workflow_name):
 
     try:
         result = polling(get_worfklow_execution, {'execution_id': execute_workflow_response.name}, workflow_execution_polling_predicate)
-        print("Desired condition met:", result)
+        logger.info("Workflow exeuction finished with result: {}.".format(result))
     except TimeoutError:
-        print("Polling timed out. Desired condition not met.")
+        logger.error("Workflow exeuction polling timed out.")
 
 
-def cleanup(project_id, instance_id, database_id, table_name, workflow_name):
+def cleanup(project_id, instance_id, database_id, table_name, workflow_name, location):
     """Cleans up the resources which includes Spanner Table & Cloud Workflows .
 
     Args:
@@ -294,55 +327,61 @@ def cleanup(project_id, instance_id, database_id, table_name, workflow_name):
         table_name: The table name.
         workflow_name: The workflow name
     """
+
+    logger.info("Cleaning up Spanner & Workflow resources")
     spanner_client = spanner.Client(project_id)
     instance = spanner_client.instance(instance_id)
     database = instance.database(database_id)
 
     database.update_ddl(["DROP TABLE " + table_name])
 
-    workflo_client = workflows_v1.WorkflowsClient()
+    logger.info("Dropped Spanner table with name: {}.".format(table_name))
+
+    workflow_client = workflows_v1.WorkflowsClient()
+
+    workflow_full_path = "projects/{project}/locations/{location}/workflows/{workflow_name}".format(project=project_id, location=location, workflow_name=workflow_name)
 
     # Initialize request argument(s)
     request = workflows_v1.DeleteWorkflowRequest(
-        name=workflow_name,
+        name=workflow_full_path,
     )
 
     # Make the request
-    operation = workflo_client.delete_workflow(request=request)
+    operation = workflow_client.delete_workflow(request=request)
 
-    print("Waiting for operation to complete...")
+    logger.info("Delete Cloud Workflow with name: {}.".format(workflow_full_path))
 
     response = operation.result()
 
 
 @pytest.fixture
-def rows():
+def spanner_vector_embeddings():
     # Setup code, e.g., initialize resources
-    print("\nSetup for integration test")
+    logger.info("Setting up resources for Integration Tests")
+    
     #1 Setting up Spanner
-    rows = setup_spanner(PROJECT_ID, SPANNER_INSTANCE_ID, SPANNER_DATABASE_ID, SPANNER_TABLE_NAME)
-
-    try:
-        # Deploy Workflow
-        deploy_workflow(PROJECT_ID, WORKFLOW_LOCATION, WORKFLOW_NAME)
-
-        #Execute Workflow
-        #sync_execute_workflow(PROJECT_ID, WORKFLOW_LOCATION, WORKFLOW_NAME)
-
-    except BaseException:
-        cleanup(PROJECT_ID, SPANNER_INSTANCE_ID, SPANNER_DATABASE_ID, SPANNER_TABLE_NAME, WORKFLOW_NAME)
+    try: 
+        rows = setup_spanner(PROJECT_ID, SPANNER_INSTANCE_ID, SPANNER_DATABASE_ID, SPANNER_TABLE_NAME)
+    except Exception as e:
+        logger.error("An exception occurred while setting up Spanner table: %s", str(e), exc_info=True)
+        pytest.fail("Test failed due to unhandled exception while setting up spanner table.")
 
     yield rows # This is where the test runs
 
-    cleanup(PROJECT_ID, SPANNER_INSTANCE_ID, SPANNER_DATABASE_ID, SPANNER_TABLE_NAME, WORKFLOW_NAME)
+    cleanup(PROJECT_ID, SPANNER_INSTANCE_ID, SPANNER_DATABASE_ID, SPANNER_TABLE_NAME, WORKFLOW_NAME, WORKFLOW_LOCATION)
 
     # Teardown code, e.g., clean up resources
     print("Teardown after integration test")
 
 
-def testJob(rows):
-    print (rows)
+def testSpannerVertexVectorSearchIntegration(spanner_vector_embeddings):
+    try:
+        # Deploy Workflow
+        deploy_workflow(PROJECT_ID, WORKFLOW_LOCATION, WORKFLOW_NAME)
 
-
-
-
+        #Execute Workflow
+        sync_execute_workflow(PROJECT_ID, WORKFLOW_LOCATION, WORKFLOW_NAME)
+    except Exception as e:
+        logger.error("An exception occurred while deploying/executing workflow: %s", str(e), exc_info=True)
+        pytest.fail("Test failed due to unhandled exception while deploying/executing workflow.")
+       
