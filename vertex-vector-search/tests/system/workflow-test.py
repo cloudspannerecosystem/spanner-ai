@@ -420,6 +420,15 @@ def cleanup(project_id, instance_id, database_id, table_name, workflow_name, loc
 
 
 def read_index_datapoints(api_endpoint, keys):
+    """Reads datapoints from a deployed Vertex Index.
+
+    Args:
+      api_endpoint: The AI Platform Index API endpoint.
+      keys: A list of datapoint IDs to fetch.
+
+    Returns:
+      A ReadIndexDatapointsResponse.
+    """
     # Create a client
     client_options = {"api_endpoint": api_endpoint}
 
@@ -439,6 +448,16 @@ def read_index_datapoints(api_endpoint, keys):
 
 @pytest.fixture
 def spanner_vertex_vector_search_data():
+    """
+    Setting up Spanner Table with vector embeddings to test the workflow.
+    The function does following operations:
+    1. Creation of Spanner table.
+    2. Inserting randomly generated vector embeddings data into spanner table.
+    3. Invoke the test to execute workflow and comapre vector embeddings.
+    4. Tear down Resources:
+        a. Dropping Spanner Table
+        b. Delete Cloud Workflow
+    """
     # Setup code, e.g., initialize resources
     logger.info("Setting up resources for Integration Tests")
 
@@ -479,6 +498,14 @@ def spanner_vertex_vector_search_data():
 
 
 def testSpannerVertexVectorSearchIntegration(spanner_vertex_vector_search_data):
+    """
+    Tests integration between Spanner and Vertex Vector Search.
+    1. Deploy workflow to Console.
+    2. Execute the workflow synchronously.
+    3. Fetch Vector Embeddings from Vertex Index.
+    4. Compare generated embeddings from the embeddings in Vertex Index.
+    """
+
     # Deploy Workflow
     deploy_workflow(PROJECT_ID, WORKFLOW_LOCATION, WORKFLOW_NAME)
 
