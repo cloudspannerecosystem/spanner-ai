@@ -1,0 +1,22 @@
+{
+  "project_id": "{{project_id}}",
+  "location": "{{location}}",
+  "dataflow": {
+    "job_name_prefix": "test-spanner-vvs-integration",
+    "temp_location": "gs://gaurav-mlops-exp/temporary/",
+    "template_path": "gs://gaurav-mlops-exp/images/2023_10_13_01/Cloud_Spanner_vectors_to_Cloud_Storage"
+  },
+  "gcs": {
+    "output_folder": "gs://gaurav-mlops-exp/test-vectors/",
+    "output_file_prefix": "test-vector-embedding-"
+  },
+  "spanner": {
+    "instance_id": "{{instance_id}}",
+    "database_id": "{{database_id}}",
+    "table_name": "{{table_name}}",
+    "columns_to_export": "id,embeddings: embedding, restricts"
+  },
+  "vertex": {
+    "vector_search_index_id": "{{vector_search_index_id}}"
+  }
+}
