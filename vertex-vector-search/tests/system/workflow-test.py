@@ -24,14 +24,14 @@ from google.cloud import aiplatform_v1beta1
 
 # Configure Variables
 PROJECT_ID = "span-cloud-testing"
-SPANNER_INSTANCE_ID = "mlops-testing"
-SPANNER_DATABASE_ID = "vector-db-load-test"
+SPANNER_INSTANCE_ID = "vertex-vector-search-tests"
+SPANNER_DATABASE_ID = "batch-vector-export"
 SPANNER_TABLE_NAME = "test_spanner_vertex_vector_integration_" + str(
     random.randint(10000, 99999)
 )
 WORKFLOW_NAME = "test-spanner-vvi-" + str(random.randint(10000, 99999))
 WORKFLOW_LOCATION = "us-central1"
-VERTEX_VECTOR_SEARCH_INDEX_ENDPOINT = ""
+VERTEX_VECTOR_SEARCH_INDEX_ENDPOINT = "1973409086.us-central1-545418958905.vdb.vertexai.goog"
 VERTEX_VECTOR_SEARCH_INDEX = "8496735588383195136"
 
 # Get the directory where this test file is located
@@ -436,7 +436,7 @@ def read_index_datapoints(api_endpoint, keys):
 
     # Initialize request argument(s)
     request = aiplatform_v1beta1.ReadIndexDatapointsRequest(
-        deployed_index_id="nsujir_100_batch_public", ids=keys
+        deployed_index_id="spanner_vvs_batch_integration_test_suite", ids=keys
     )
 
     # Make the request

@@ -3,11 +3,11 @@
   "location": "{{location}}",
   "dataflow": {
     "job_name_prefix": "test-spanner-vvs-integration",
-    "temp_location": "gs://gaurav-mlops-exp/temporary/",
+    "temp_location": "gs://spanner-vertex-vector-search-test-suite/temp/batch-vector-embeddings/",
     "template_path": "gs://gaurav-mlops-exp/images/2023_10_13_01/Cloud_Spanner_vectors_to_Cloud_Storage"
   },
   "gcs": {
-    "output_folder": "gs://gaurav-mlops-exp/test-vectors/",
+    "output_folder": "gs://spanner-vertex-vector-search-test-suite/batch-vector-embeddings/",
     "output_file_prefix": "test-vector-embedding-"
   },
   "spanner": {
