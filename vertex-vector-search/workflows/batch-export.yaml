@@ -140,10 +140,6 @@ main:
         call: sys.log
         args:
           text: ${"Vector search index update operation started - " + vector_search_operation}
-    - sleep:
-        call: sys.sleep
-        args:
-          seconds: 1800
     - polling_vector_search_index_update_operation:
         try:
           steps:

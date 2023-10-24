@@ -7,7 +7,8 @@
     "project_id": "<Optional: GCP PROJECT Override (Only pass if different from project_id defined above>",
     "location": "<Optional: Location/Region Override (Only pass if different from location defined above>",
     "max_workers": "<Optional: To cap the maximum number of workers>",
-    "num_workers": "<Optional: To start the job with initial number of workers>"
+    "num_workers": "<Optional: To start the job with initial number of workers>",
+    "service_account_email": "<Optional: Dataflow worker service account>"
   },
   "gcs": {
     "output_folder": "<Cloud Storage Location to store generated embeddings (eg: gs://<bucket_name>/<folder_name>/)>",
