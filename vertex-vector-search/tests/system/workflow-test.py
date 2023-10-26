@@ -31,8 +31,10 @@ SPANNER_TABLE_NAME = "test_spanner_vertex_vector_integration_" + str(
 )
 WORKFLOW_NAME = "test-spanner-vvi-" + str(random.randint(10000, 99999))
 WORKFLOW_LOCATION = "us-central1"
-VERTEX_VECTOR_SEARCH_INDEX_ENDPOINT = "1973409086.us-central1-545418958905.vdb.vertexai.goog"
-VERTEX_VECTOR_SEARCH_INDEX = "8496735588383195136"
+VERTEX_VECTOR_SEARCH_INDEX_ENDPOINT = (
+    "998879972.us-central1-545418958905.vdb.vertexai.goog"
+)
+VERTEX_VECTOR_SEARCH_INDEX = "3193900958782324736"
 
 # Get the directory where this test file is located
 THIS_FILE_DIRECTORY = os.path.dirname(os.path.abspath(__file__))
@@ -436,7 +438,7 @@ def read_index_datapoints(api_endpoint, keys):
 
     # Initialize request argument(s)
     request = aiplatform_v1beta1.ReadIndexDatapointsRequest(
-        deployed_index_id="spanner_vvs_batch_integration_test_suite", ids=keys
+        deployed_index_id="spanner_vector_batch_integration_test_suite", ids=keys
     )
 
     # Make the request
@@ -497,6 +499,47 @@ def spanner_vertex_vector_search_data():
     )
 
 
+def compare_float_lists(list1, list2, tolerance=1e-5):
+    """
+    Compare two lists of floating-point numbers with a specified tolerance.
+
+    This function compares two lists of floating-point numbers element-wise, allowing for a certain tolerance
+    to account for small differences due to floating-point precision. It returns True if all corresponding elements
+    in the two lists are within the specified tolerance, indicating that the lists are considered equal.
+    If the lists have different lengths, they are not considered equal.
+
+    Parameters:
+        list1 (list of float): The first list of floating-point numbers to be compared.
+        list2 (list of float): The second list of floating-point numbers to be compared.
+        tolerance (float, optional): The allowable absolute difference between corresponding elements
+            in the two lists. Default is 1e-5.
+
+    Returns:
+        bool: True if the lists are equal within the specified tolerance, False otherwise.
+
+    Example:
+        ```python
+        list1 = [1.0, 2.00001, 3.00002]
+        list2 = [1.00001, 2.0, 3.00003]
+
+        are_equal = compare_float_lists(list1, list2)
+
+        if are_equal:
+            print("The lists are equal within the specified tolerance.")
+        else:
+            print("The lists are not equal within the specified tolerance.")
+        ```
+    """
+    if len(list1) != len(list2):
+        return False  # The lists have different lengths, so they can't be equal.
+
+    for elem1, elem2 in zip(list1, list2):
+        if abs(elem1 - elem2) > tolerance:
+            return False  # The elements are not within the allowable error.
+
+    return True
+
+
 def testSpannerVertexVectorSearchIntegration(spanner_vertex_vector_search_data):
     """
     Tests integration between Spanner and Vertex Vector Search.
@@ -537,4 +580,6 @@ def testSpannerVertexVectorSearchIntegration(spanner_vertex_vector_search_data):
         actual_vector_embeddings = actual_data[1]
         vertex_index_vector_embeddings = list(data_point.feature_vector)
 
-        assert actual_vector_embeddings == vertex_index_vector_embeddings
+        assert compare_float_lists(
+            actual_vector_embeddings, vertex_index_vector_embeddings
+        )
