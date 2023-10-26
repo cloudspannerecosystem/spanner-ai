@@ -143,12 +143,9 @@ def setup_spanner(project_id, instance_id, database_id, table_name):
     ) PRIMARY KEY (id)""".format(
         tableName=table_name
     )
-
-    logger.info("Spanner DDL to create new table: {}.".format(ddl))
-
     databaseoperation = database.update_ddl([ddl])
 
-    logger.info("Waiting for creation of Spanner Table...")
+    logger.info("Waiting for creation of Spanner Table with DDL: {}.".format(ddl))
     databaseoperation.result(100000)
 
     logger.info("Created {} table on database {}.".format(table_name, database.name))

@@ -3,8 +3,7 @@
   "location": "{{location}}",
   "dataflow": {
     "job_name_prefix": "test-spanner-vvs-integration",
-    "temp_location": "gs://spanner-vertex-vector-search-test-suite/temp/batch-vector-embeddings/",
-    "template_path": "gs://gaurav-mlops-exp/images/2023_10_13_01/Cloud_Spanner_vectors_to_Cloud_Storage"
+    "temp_location": "gs://spanner-vertex-vector-search-test-suite/temp/batch-vector-embeddings/"
   },
   "gcs": {
     "output_folder": "gs://spanner-vertex-vector-search-test-suite/batch-vector-embeddings/",

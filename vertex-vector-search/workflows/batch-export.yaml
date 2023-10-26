@@ -49,6 +49,7 @@ main:
         assign:
           - spanner_export_job_name: ${params.dataflow.job_name_prefix + "_" + current_timestamp}
           - embeddings_output_folder: ${params.gcs.output_folder + "embeddings-" + current_timestamp + "/"}
+          - dataflow_template_path: ${"gs://dataflow-templates-us-central1/latest/Cloud_Spanner_vectors_to_Cloud_Storage"}
     - initialize_dataflow_job_variables:
         steps:
           - max_workers:
@@ -91,7 +92,7 @@ main:
               tempLocation: ${params.dataflow.temp_location}
               numWorkers: ${params.dataflow.num_workers}
               maxWorkers: ${params.dataflow.max_workers}
-            gcsPath: ${params.dataflow.template_path}
+            gcsPath: ${dataflow_template_path}
           connector_params:
               timeout: 43200
         result: dataflow_spanner_export_job_result
