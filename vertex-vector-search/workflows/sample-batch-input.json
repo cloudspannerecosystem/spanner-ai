@@ -3,12 +3,12 @@
   "location": "<Location/Region for Dataflow and Vertex>",
   "dataflow": {
     "temp_location": "<Cloud Storage Location to store temporary files (eg: gs://<bucket_name>/<folder_name>>/)>",
-    "template_path": "gs://gaurav-mlops-exp/images/2023_10_13_01/Cloud_Spanner_vectors_to_Cloud_Storage",
     "job_name_prefix": "<Optional: Dataflow Job Name Prefix>",
     "project_id": "<Optional: GCP PROJECT Override (Only pass if different from project_id defined above>",
     "location": "<Optional: Location/Region Override (Only pass if different from location defined above>",
     "max_workers": "<Optional: To cap the maximum number of workers>",
-    "num_workers": "<Optional: To start the job with initial number of workers>"
+    "num_workers": "<Optional: To start the job with initial number of workers>",
+    "service_account_email": "<Optional: Dataflow worker service account>"
   },
   "gcs": {
     "output_folder": "<Cloud Storage Location to store generated embeddings (eg: gs://<bucket_name>/<folder_name>/)>",

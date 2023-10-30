@@ -67,6 +67,21 @@ main:
                   - condition: ${not ("data_boost_enabled" in params.spanner)}
                     assign:
                       - params.spanner.data_boost_enabled: "false"
+          - service_account_email:
+              switch:
+                  - condition: ${not ("service_account_email" in params.dataflow)}
+                    assign:
+                      - params.dataflow.service_account_email: ""
+          - job_name_prefix:
+              switch:
+              - condition: ${not ("job_name_prefix" in params.dataflow)}
+                assign:
+                - params.dataflow.job_name_prefix: "spanner-vectors-export"
+          - output_file_prefix:
+              switch:
+              - condition: ${not ("output_file_prefix" in params.gcs)}
+                assign:
+                - params.gcs.output_file_prefix: "vector-embeddings"
     - log_gcs_folder_path:
         call: sys.log
         args:
@@ -92,6 +107,7 @@ main:
               tempLocation: ${params.dataflow.temp_location}
               numWorkers: ${params.dataflow.num_workers}
               maxWorkers: ${params.dataflow.max_workers}
+              serviceAccountEmail: ${params.dataflow.service_account_email}
             gcsPath: ${dataflow_template_path}
           connector_params:
               timeout: 43200
@@ -162,9 +178,9 @@ main:
           predicate: ${job_state_predicate}
           max_retries: 1000
           backoff:
-            initial_delay: 60
-            max_delay: 60
-            multiplier: 1
+            initial_delay: 300
+            max_delay: 1800
+            multiplier: 1.25
     - workflow_output:
         switch:
             - condition: ${"error" in index_update_operation_response.body}
