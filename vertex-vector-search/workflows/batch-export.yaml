@@ -59,6 +59,11 @@ main:
         call: sys.log
         args:
           text: ${"Spanner Version Time chosen for exporting data is " + current_timestamp}
+    - initialize_dataflow_job_name_and_gcs_folder:
+        assign:
+          - spanner_export_job_name: ${params.dataflow.job_name_prefix + "_" + current_timestamp}
+          - embeddings_output_folder: ${params.gcs.output_folder + "embeddings-" + current_timestamp + "/"}
+          - dataflow_template_path: ${"gs://dataflow-templates-us-central1/latest/Cloud_Spanner_vectors_to_Cloud_Storage"}
     - initialize_dataflow_job_variables:
         steps:
           - max_workers:
@@ -91,10 +96,6 @@ main:
               - condition: ${not ("output_file_prefix" in params.gcs)}
                 assign:
                 - params.gcs.output_file_prefix: "vector-embeddings"
-    - initialize_dataflow_job_name_and_gcs_folder:
-        assign:
-        - spanner_export_job_name: ${params.dataflow.job_name_prefix + "-" + current_timestamp}
-        - embeddings_output_folder: ${params.gcs.output_folder + "embeddings-" + current_timestamp + "/"}
     - log_gcs_folder_path:
         call: sys.log
         args:
@@ -121,7 +122,7 @@ main:
               numWorkers: ${params.dataflow.num_workers}
               maxWorkers: ${params.dataflow.max_workers}
               serviceAccountEmail: ${params.dataflow.service_account_email}
-            gcsPath: ${params.dataflow.template_path}
+            gcsPath: ${dataflow_template_path}
           connector_params:
               timeout: 43200
         result: dataflow_spanner_export_job_result
