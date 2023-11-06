@@ -19,6 +19,7 @@ from google.cloud.workflows.executions_v1 import Execution
 from google.cloud import workflows_v1
 import random, json, string, time, pytest, os
 import logging
+import threading
 from google.cloud import aiplatform_v1beta1
 
 
@@ -61,6 +62,34 @@ console_handler.setFormatter(logging.Formatter(log_format, log_datefmt))
 
 # Add the console handler and file handler to the logger
 logger.addHandler(console_handler)
+
+
+@pytest.fixture(scope="module")
+def setup_workflow():
+    # Deploy Workflow
+    deploy_workflow(PROJECT_ID, WORKFLOW_LOCATION, WORKFLOW_NAME)
+
+    yield
+
+    workflow_client = workflows_v1.WorkflowsClient()
+
+    workflow_full_path = (
+        "projects/{project}/locations/{location}/workflows/{workflow_name}".format(
+            project=PROJECT_ID, location=WORKFLOW_LOCATION, workflow_name=WORKFLOW_NAME
+        )
+    )
+
+    # Initialize request argument(s)
+    request = workflows_v1.DeleteWorkflowRequest(
+        name=workflow_full_path,
+    )
+
+    # Make the request
+    operation = workflow_client.delete_workflow(request=request)
+
+    logger.info("Delete Cloud Workflow with name: {}.".format(workflow_full_path))
+
+    operation.result()
 
 
 def generate_vector_data(number_of_rows, vector_dimension):
@@ -223,13 +252,17 @@ def deploy_workflow(project, location, workflow_name):
     )
 
 
-def execute_workflow(project, location, workflow_name):
+def execute_workflow(
+    project, location, workflow_name, spanner_arguments, vertex_index_id
+):
     """Executes a workflow.
 
     Args:
         project: The project ID.
         location: The location of the workflow.
         workflow_name: The name of the workflow.
+        spanner_arguments: The dictionary with Spanner Arguments.
+        vertex_index_id: The Vertex Vector Search Index ID.
     """
     logger.info("Starting execution of workflow with name: {}.".format(workflow_name))
 
@@ -247,12 +280,12 @@ def execute_workflow(project, location, workflow_name):
         # Read the entire file content
         json_arguments = json.load(file)
 
-    json_arguments["project_id"] = PROJECT_ID
-    json_arguments["location"] = WORKFLOW_LOCATION
-    json_arguments["spanner"]["instance_id"] = SPANNER_INSTANCE_ID
-    json_arguments["spanner"]["database_id"] = SPANNER_DATABASE_ID
-    json_arguments["spanner"]["table_name"] = SPANNER_TABLE_NAME
-    json_arguments["vertex"]["vector_search_index_id"] = VERTEX_VECTOR_SEARCH_INDEX
+    json_arguments["project_id"] = project
+    json_arguments["location"] = location
+    json_arguments["spanner"]["instance_id"] = spanner_arguments["instance_id"]
+    json_arguments["spanner"]["database_id"] = spanner_arguments["database_id"]
+    json_arguments["spanner"]["table_name"] = spanner_arguments["table_name"]
+    json_arguments["vertex"]["vector_search_index_id"] = vertex_index_id
 
     workflow_execution_request = Execution()
     workflow_execution_request.argument = json.dumps(json_arguments, indent=4)
@@ -356,15 +389,21 @@ def polling(
     raise TimeoutError("Polling timed out")
 
 
-def sync_execute_workflow(project, location, workflow_name):
+def sync_execute_workflow(
+    project, location, workflow_name, spanner_arguments, vertex_index_id
+):
     """Synchronously executes a workflow.
 
     Args:
         project: The project ID.
         location: The location of the workflow.
         workflow_name: The name of the workflow.
+        spanner_arguments: The dictionary with Spanner Arguments.
+        vertex_index_id: The Vertex Vector Search Index ID.
     """
-    execute_workflow_response = execute_workflow(project, location, workflow_name)
+    execute_workflow_response = execute_workflow(
+        project, location, workflow_name, spanner_arguments, vertex_index_id
+    )
 
     try:
         result = polling(
@@ -377,18 +416,17 @@ def sync_execute_workflow(project, location, workflow_name):
         logger.error("Workflow exeuction polling timed out.")
 
 
-def cleanup(project_id, instance_id, database_id, table_name, workflow_name, location):
-    """Cleans up the resources which includes Spanner Table & Cloud Workflows .
+def cleanup_spanner_resources(project_id, instance_id, database_id, table_name):
+    """Cleans up the Spanner resources.
 
     Args:
         project_id: The project ID.
         instance_id: The instance ID.
         database_id: The database ID.
         table_name: The table name.
-        workflow_name: The workflow name
     """
 
-    logger.info("Cleaning up Spanner & Workflow resources")
+    logger.info("Cleaning up Spanner resources")
     spanner_client = spanner.Client(project_id)
     instance = spanner_client.instance(instance_id)
     database = instance.database(database_id)
@@ -396,26 +434,6 @@ def cleanup(project_id, instance_id, database_id, table_name, workflow_name, loc
     database.update_ddl(["DROP TABLE " + table_name])
 
     logger.info("Dropped Spanner table with name: {}.".format(table_name))
-
-    workflow_client = workflows_v1.WorkflowsClient()
-
-    workflow_full_path = (
-        "projects/{project}/locations/{location}/workflows/{workflow_name}".format(
-            project=project_id, location=location, workflow_name=workflow_name
-        )
-    )
-
-    # Initialize request argument(s)
-    request = workflows_v1.DeleteWorkflowRequest(
-        name=workflow_full_path,
-    )
-
-    # Make the request
-    operation = workflow_client.delete_workflow(request=request)
-
-    logger.info("Delete Cloud Workflow with name: {}.".format(workflow_full_path))
-
-    response = operation.result()
 
 
 def read_index_datapoints(api_endpoint, keys):
@@ -453,9 +471,7 @@ def spanner_vertex_vector_search_data():
     1. Creation of Spanner table.
     2. Inserting randomly generated vector embeddings data into spanner table.
     3. Invoke the test to execute workflow and comapre vector embeddings.
-    4. Tear down Resources:
-        a. Dropping Spanner Table
-        b. Delete Cloud Workflow
+    4. Tear down Spanner Resources.
     """
     # Setup code, e.g., initialize resources
     logger.info("Setting up resources for Integration Tests")
@@ -479,20 +495,13 @@ def spanner_vertex_vector_search_data():
         yield rows  # This is where the test runs
     except Exception as e:
         logger.error(
-            "An exception occurred while deploying/executing workflow: %s",
+            "An exception occurred while executing workflow: %s",
             str(e),
             exc_info=True,
         )
 
-    # Teardown code, e.g., clean up resources
-    logger.info("Teardown resources.")
-    cleanup(
-        PROJECT_ID,
-        SPANNER_INSTANCE_ID,
-        SPANNER_DATABASE_ID,
-        SPANNER_TABLE_NAME,
-        WORKFLOW_NAME,
-        WORKFLOW_LOCATION,
+    cleanup_spanner_resources(
+        PROJECT_ID, SPANNER_INSTANCE_ID, SPANNER_DATABASE_ID, SPANNER_TABLE_NAME
     )
 
 
@@ -537,20 +546,24 @@ def compare_float_lists(list1, list2, tolerance=1e-5):
     return True
 
 
-def testSpannerVertexVectorSearchIntegration(spanner_vertex_vector_search_data):
+def read_and_compare_vertex_data(
+    spanner_vertex_vector_search_data, vertex_index_end_point_url
+):
     """
-    Tests integration between Spanner and Vertex Vector Search.
-    1. Deploy workflow to Console.
-    2. Execute the workflow synchronously.
-    3. Fetch Vector Embeddings from Vertex Index.
-    4. Compare generated embeddings from the embeddings in Vertex Index.
+    Reads and compares vertex data from a @code{spanner_vertex_vector_search_data}
+
+    Args:
+        spanner_vertex_vector_search_data (list of tuples): A list of tuples representing vector data
+            retrieved from a Spanner database, where each tuple contains an ID and vector embeddings.
+        vertex_index_end_point_url (str): The URL of the Vertex Index endpoint for data retrieval.
+
+    Raises:
+        AssertionError: If the actual data retrieved from the Spanner database is not found in
+            the data fetched from the Vertex Index, or if the vector embeddings do not match.
+
+    Returns:
+        None: This function does not return a value but raises assertions if comparisons fail.
     """
-
-    # Deploy Workflow
-    deploy_workflow(PROJECT_ID, WORKFLOW_LOCATION, WORKFLOW_NAME)
-
-    # Execute Workflow
-    sync_execute_workflow(PROJECT_ID, WORKFLOW_LOCATION, WORKFLOW_NAME)
 
     # Dictionary from id -> row
     spanner_vertex_vector_search_data_dict = {
@@ -564,7 +577,7 @@ def testSpannerVertexVectorSearchIntegration(spanner_vertex_vector_search_data):
 
     # Fetching data from Vertex Index
     vertex_vector_search_data = read_index_datapoints(
-        VERTEX_VECTOR_SEARCH_INDEX_ENDPOINT, data_point_id_list
+        vertex_index_end_point_url, data_point_id_list
     )
 
     for data_point in vertex_vector_search_data.datapoints:
@@ -580,3 +593,146 @@ def testSpannerVertexVectorSearchIntegration(spanner_vertex_vector_search_data):
         assert compare_float_lists(
             actual_vector_embeddings, vertex_index_vector_embeddings
         )
+
+
+def test_spanner_vertex_vector_search_integration(
+    setup_workflow, spanner_vertex_vector_search_data
+):
+    """
+    Tests integration between Spanner and Vertex Vector Search.
+    1. Execute the workflow synchronously.
+    2. Fetch Vector Embeddings from Vertex Index.
+    3. Compare generated embeddings from the embeddings in Vertex Index.
+    """
+    # Execute Workflow
+    sync_execute_workflow(
+        PROJECT_ID,
+        WORKFLOW_LOCATION,
+        WORKFLOW_NAME,
+        {
+            "instance_id": SPANNER_INSTANCE_ID,
+            "database_id": SPANNER_DATABASE_ID,
+            "table_name": SPANNER_TABLE_NAME,
+        },
+        VERTEX_VECTOR_SEARCH_INDEX,
+    )
+
+    read_and_compare_vertex_data(
+        spanner_vertex_vector_search_data, VERTEX_VECTOR_SEARCH_INDEX_ENDPOINT
+    )
+
+
+def setup_and_execute_workflow(
+    project, location, workflow_name, spanner_arguments, vertex_index_id, result_list
+):
+    """
+    Sets up a Spanner database and executes a workflow, then appends the result to a list.
+
+    Args:
+        project (str): The project ID for GCP.
+        location (str): The location where the workflow will be executed.
+        workflow_name (str): The name of the workflow to be executed.
+        spanner_arguments (dict): A dictionary containing Spanner setup parameters, including
+            instance_id, database_id, and table_name.
+        vertex_index_id (str): The ID of the Vertex Index.
+        result_list (list): A list to which the result will be appended.
+
+    Returns:
+        None: This function does not return a value directly but appends the result rows
+        to the result_list.
+
+    Raises:
+        Any exceptions raised by the functions called within this function may be propagated.
+
+    Note:
+        This function sets up a Spanner database, executes a workflow, and appends the result rows
+        to the provided result_list.
+    """
+
+    # 1 Setting up Spanner
+    rows = setup_spanner(
+        project,
+        spanner_arguments["instance_id"],
+        spanner_arguments["database_id"],
+        spanner_arguments["table_name"],
+    )
+
+    # 2 Execute Workflow
+    sync_execute_workflow(
+        project, location, workflow_name, spanner_arguments, vertex_index_id
+    )
+
+    result_list.append(rows)
+
+    cleanup_spanner_resources(
+        project,
+        spanner_arguments["instance_id"],
+        spanner_arguments["database_id"],
+        spanner_arguments["table_name"],
+    )
+
+
+def test_concurrent_workflow_execution(setup_workflow):
+    """
+    Test the concurrent execution of workflow in separate threads.
+
+    Args:
+        setup_workflow (fixture): A fixture that sets up the necessary environment for testing.
+
+    Raises:
+        AssertionError: If the concurrent workflow execution does not behave as expected.
+
+    Note:
+        This test function verifies the behavior of concurrent execution of the
+        'setup_and_execute_workflow' function in separate threads. It creates two threads
+        to run the function with different parameters and verifies the results.
+        The final vertex state should be consistent with the latest spanner data.
+    """
+     
+    # Create a thread for the async function without blocking
+    result_list1 = []
+    result_list2 = []
+
+    thread_1 = threading.Thread(
+        target=setup_and_execute_workflow,
+        args=(
+            PROJECT_ID,
+            WORKFLOW_LOCATION,
+            WORKFLOW_NAME,
+            {
+                "instance_id": SPANNER_INSTANCE_ID,
+                "database_id": SPANNER_DATABASE_ID,
+                "table_name": SPANNER_TABLE_NAME + "_first",
+            },
+            VERTEX_VECTOR_SEARCH_INDEX,
+            result_list1,
+        ),
+    )
+    thread_1.start()
+
+    # Wait for 5 minutes (300 seconds)
+    time.sleep(300)
+
+    # Create another thread for the async function
+    thread_2 = threading.Thread(
+        target=setup_and_execute_workflow,
+        args=(
+            PROJECT_ID,
+            WORKFLOW_LOCATION,
+            WORKFLOW_NAME,
+            {
+                "instance_id": SPANNER_INSTANCE_ID,
+                "database_id": SPANNER_DATABASE_ID,
+                "table_name": SPANNER_TABLE_NAME + "_second",
+            },
+            VERTEX_VECTOR_SEARCH_INDEX,
+            result_list2,
+        ),
+    )
+    thread_2.start()
+
+    thread_1.join()
+    thread_2.join()
+
+    # Vertex should have data points which were latest
+    read_and_compare_vertex_data(result_list2[0], VERTEX_VECTOR_SEARCH_INDEX_ENDPOINT)
