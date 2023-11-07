@@ -711,7 +711,7 @@ def test_concurrent_workflow_execution(setup_workflow):
     thread_1.start()
 
     # Wait for 5 minutes (300 seconds)
-    time.sleep(300)
+    time.sleep(60)
 
     # Create another thread for the async function
     thread_2 = threading.Thread(
