@@ -137,6 +137,10 @@ def generate_vector_data(number_of_rows, vector_dimension):
         )
         row += (restricts,)
 
+        crowding_tag = "a" if i % 2 == 0 else "b"
+
+        row += (crowding_tag,)
+
         rows.append(row)
 
     logger.info("Vector Embeddings generated.")
@@ -188,7 +192,7 @@ def setup_spanner(project_id, instance_id, database_id, table_name):
     with database.batch() as batch:
         batch.insert(
             table=table_name,
-            columns=("id", "embeddings", "text", "restricts"),
+            columns=("id", "embeddings", "text", "restricts", "crowding_tag"),
             values=rows,
         )
 
@@ -688,7 +692,7 @@ def test_concurrent_workflow_execution(setup_workflow):
         to run the function with different parameters and verifies the results.
         The final vertex state should be consistent with the latest spanner data.
     """
-     
+
     # Create a thread for the async function without blocking
     result_list1 = []
     result_list2 = []

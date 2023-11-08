@@ -13,7 +13,7 @@
     "instance_id": "{{instance_id}}",
     "database_id": "{{database_id}}",
     "table_name": "{{table_name}}",
-    "columns_to_export": "id,embeddings: embedding, restricts"
+    "columns_to_export": "id,embeddings: embedding, restricts, crowding_tag"
   },
   "vertex": {
     "vector_search_index_id": "{{vector_search_index_id}}"
