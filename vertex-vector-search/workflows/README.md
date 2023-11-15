@@ -97,7 +97,7 @@ the region or location where the workflow will run when executed.
 
 ```
   gcloud workflows deploy vector-export-workflow \
---source=batch-export.yaml --location="us-east1" [--service account=<service_account>]
+--source=batch-export.yaml [--location=<cloud region>] [--service account=<service_account>]
 ```
 
 The workflow is now visible on the [Workflows
@@ -113,7 +113,8 @@ copy and paste the contents of `batch-export.yaml`.
 
 ```
 gcloud workflows execute \
-    vector-export-workflow --data="$(cat input.json)"
+    vector-export-workflow --data="$(cat input.json)" \
+    [--location=<cloud region>]
 ```
 
 The execution shows up in the `Executions` tab in Workflows where you can
@@ -127,9 +128,9 @@ customized `input.json`.
 
 ### 6.  **Schedule the workflow for periodic execution**:
 
-        Once the workflow executes successfully, schedule it periodically using
-   Cloud Scheduler. This prevents your index from becoming stale as your
-   embeddings change.
+Once the workflow executes successfully, schedule it periodically using Cloud
+Scheduler. This prevents your index from becoming stale as your embeddings
+change.
 
 ```
 gcloud scheduler jobs create http vector-export-workflow \
