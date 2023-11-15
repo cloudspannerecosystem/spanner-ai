@@ -48,7 +48,8 @@ This tutorial uses billable components of Google Cloud, including:
 1.  Ensure that your account has the required [permissions](#permissions).
 2.  [Generate and store
     embeddings](https://cloud.google.com/spanner/docs/ml-tutorial-embeddings#generate-store-embeddings)
-    in your Spanner database as `ARRAY<float64>`. For more details see [Spanner
+    in your Spanner database as `ARRAY<float64>`. For more details about how you
+    should configure your Spanner schema to use this workflow, see [Spanner
     schema](#spanner-schema).
 
 ## Set up Cloud Workflow
@@ -96,8 +97,8 @@ Deploy the workflow yaml file to your Google Cloud project. You can configure
 the region or location where the workflow will run when executed.
 
 ```
-  gcloud workflows deploy vector-export-workflow \
---source=batch-export.yaml [--location=<cloud region>] [--service account=<service_account>]
+  gcloud workflows deploy <workflow-name> \
+--source=batch-export.yaml [--location=<cloud-region>] [--service account=<service-account>]
 ```
 
 The workflow is now visible on the [Workflows
@@ -113,8 +114,8 @@ copy and paste the contents of `batch-export.yaml`.
 
 ```
 gcloud workflows execute \
-    vector-export-workflow --data="$(cat input.json)" \
-    [--location=<cloud region>]
+    <workflow-name> --data="$(cat input.json)" \
+    [--location=<cloud-region>]
 ```
 
 The execution shows up in the `Executions` tab in Workflows where you can
@@ -194,16 +195,16 @@ parameters that you don’t want to pass.
 The required parameters are organized by product. There are 4 sections -
 `dataflow`, `gcs`, `spanner` and `vertex` - for each component that needs to be
 configured. Outside of these sections, we have `location` and `project_id`.
-These apply to all sections. The `location` and `project_id` arguments can be
-overridden in any section if you need to run in a different location or use
-resources from different projects.
+These apply to all sections. The `location` (e.g. `us-central1`) and
+`project_id` arguments can be overridden in any section if you need to run in a
+different location or use resources from different projects.
 
 ##### Spanner Parameters
 
 Enter the `instance_id`, `database_id`, and `table_name`. The
 `columns_to_export` parameter is used to list the columns to export as well as
 which
-[Vector Search field](https://cloud.google.com/vertex-ai/docs/vector-search/setup/format-structure#json)
+[Vector Search argument](#vertex-ai-vector-search-arguments)
 the column should map to if the column name differs from the field name expected by
 Vector Search. The `id` and `embedding` fields are required in the update index
 request. The `restricts` and `crowding_tag` fields are optional.
@@ -246,10 +247,14 @@ Management](https://cloud.google.com/storage/docs/lifecycle).
 gs://<bucket_name>/<folder_name>/
 ```
 
+The bucket and folder must be created prior to workflow execution.
+
 ##### Vertex Parameters
 
 `vector_search_index_id`: Vertex AI Vector Search Index which needs to be
-updated.
+updated. To find the id, in the Vertex AI page of the [Google Cloud
+console](http://console.cloud.google.com/vertex-ai/matching-engine), select
+Vector Search from the navigation menu.
 
 #### Optional Parameters
 
@@ -308,6 +313,7 @@ Vertex AI Vector Search accepts the following
 [arguments](https://cloud.google.com/vertex-ai/docs/vector-search/setup/format-structure#json) when creating or
 updating the index.
 
+#### Vertex AI Vector Search Arguments
 * `id` (required): A string.
 * `embedding` (required): An array of floats.
 * `restricts` (optional): An array of objects, with each object being a nested
@@ -318,7 +324,7 @@ updating the index.
 When defining your Spanner schema, you must have columns that will contain the
 data for the required arguments. The names of the columns do not need to match
 the name of the Vector Search arguments. If the column names are different, you
-can alias them in the Cloud Workflow `cloumns_to_export` parameter as described
+can alias them in the Cloud Workflow `columns_to_export` parameter as described
 in [Spanner Parameters](#spanner-parameters).
 
 The data type for each of the columns in the Spanner schema should be as shown
