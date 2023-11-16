@@ -104,9 +104,10 @@ the region or location where the workflow will run when executed.
 The workflow is now visible on the [Workflows
 page](https://console.cloud.google.com/workflows) in the Google Cloud console.
 
-**Note**: You can also create and deploy the workflow from the Google Cloud
-console. Follow the prompts in the Cloud console. For the workflow definition,
-copy and paste the contents of `batch-export.yaml`.
+**Note**: You can also create and deploy the workflow from the [Google Cloud
+console](https://console.cloud.google.com/workflows/create). Follow the prompts
+in the Cloud console. For the workflow definition, copy and paste the contents
+of `batch-export.yaml`.
 
 ### 5.  **Execute the workflow**:
 
@@ -134,9 +135,9 @@ Scheduler. This prevents your index from becoming stale as your embeddings
 change.
 
 ```
-gcloud scheduler jobs create http vector-export-workflow \
+gcloud scheduler jobs create http <workflow-name> \
   --message-body="{ argument : $(cat input.json) }" \
-  --schedule="0 * * * *" --time-zone="PDT" \
+  --schedule="0 * * * *" --time-zone="UTC" \
   --uri <invocation_url> [--service account=<service_account>]
 ```
 
@@ -252,9 +253,9 @@ The bucket and folder must be created prior to workflow execution.
 ##### Vertex Parameters
 
 `vector_search_index_id`: Vertex AI Vector Search Index which needs to be
-updated. To find the id, in the Vertex AI page of the [Google Cloud
-console](http://console.cloud.google.com/vertex-ai/matching-engine), select
-Vector Search from the navigation menu.
+updated. To find the `vector_search_index_id`, go to the [Vertex AI Vector
+Search](http://console.cloud.google.com/vertex-ai/matching-engine) page in the
+Google Cloud console.
 
 #### Optional Parameters
 
